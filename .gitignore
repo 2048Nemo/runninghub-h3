@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# 运行日志
+*.log
+
+# 本机状态类文件，绝不进仓库（正常都在仓库外：~/.config/runninghub、~/.runninghub*）
+config.json
+tasks.json
+projects/
+workflows/
+
+# 安全扫描工具的本地产物
+.mimosa/

@@ -1,0 +1,62 @@
+{
+  "_note": "extract 子命令的产物结构示例（节点 ID 均为占位，以你的 AI 应用实际导出为准）。字段含义：target=提交端点；params=可覆盖参数白名单（键为 '<nodeId>_<field>'）；media=素材槽位清单（submit --file 的字段名必须用这里的 field）。",
+  "target": "aiapp",
+  "webappId": "<你的webappId>",
+  "workflowId": null,
+  "name": "my-h3-app",
+  "params": {
+    "252_aspect_ratio": {
+      "node": "252",
+      "field": "aspect_ratio",
+      "label": "输出比例",
+      "type": "select",
+      "default": "9:16 (Portrait Widescreen)",
+      "options": [
+        "1:1 (Square)",
+        "3:4 (Portrait Standard)",
+        "9:16 (Portrait Widescreen)",
+        "16:9 (Widescreen)"
+      ]
+    },
+    "252_megapixels": {
+      "node": "252",
+      "field": "megapixels",
+      "label": "一采分辨率（百万像素档）",
+      "type": "number",
+      "default": "0.5"
+    },
+    "259_value": {
+      "node": "259",
+      "field": "value",
+      "label": "时长（秒）",
+      "type": "number",
+      "default": "10"
+    },
+    "283_value": {
+      "node": "283",
+      "field": "value",
+      "label": "二采上采样倍率",
+      "type": "number",
+      "default": "1"
+    },
+    "263_text": {
+      "node": "263",
+      "field": "text",
+      "label": "提示词（Ref2VA 六段式）",
+      "type": "textarea",
+      "default": ""
+    }
+  },
+  "media": {
+    "video": [
+      { "node": "27", "field": "video", "label": "video1", "accept": "video/mp4,video/quicktime" }
+    ],
+    "image": [
+      { "node": "51", "field": "image", "label": "image1", "accept": "image/*" },
+      { "node": "49", "field": "image", "label": "image2", "accept": "image/*" }
+    ],
+    "audio": [
+      { "node": "48", "field": "audio", "label": "audio1", "accept": "audio/*" }
+    ]
+  }
+}

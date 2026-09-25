@@ -1,0 +1,25 @@
+subject_definitions:
+<Subject 1> is a young witch apprentice from <Picture 1>: a petite anime girl with shoulder-length lavender hair tied into two low side tails with star-shaped hairpins, large amber eyes, a pointed black witch hat with a silver crescent buckle, and an oversized midnight-blue academy cloak with gold constellation embroidery over a white pinstripe blouse. Matte fair skin, small rounded face; her temperament is curious, earnest and a little clumsy, all motions small and bouncy. Her hat, cloak, hairpins and color palette are locked exactly as in <Picture 1>; she fully replaces the original hooded figure of <Video 1>.
+<Subject 2> is the cluttered potion workshop from <Video 1>: a cramped attic studio with sagging wooden shelves crowded with bubbling flasks, bundles of dried herbs hanging from exposed rafters, a dented brass cauldron at center, and warm lantern light pooling over a scratched workbench.
+<Audio 1> is the female voice reference: a bright, slightly husky young timbre.
+
+summary:
+[reference generation] In the lantern-lit workshop of <Subject 2>, the witch apprentice <Subject 1> rushes a stirring task, panics when her cauldron burps violet smoke, then sheepishly presents the finished flask to the viewer with a tiny proud grin, following the staging, camera flow and line timing of <Video 1> and speaking with the voice of <Audio 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - lavender side tails with star pins, amber eyes, black witch hat with crescent buckle, midnight-blue constellation cloak over pinstripe blouse, small bouncy mannerisms.
+<Subject 2> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - shelf-lined attic walls, hanging dried herbs, brass cauldron, warm single-lantern lighting.
+<Video 1> (camera flow and pacing): weak_reference - vertical 9:16 framing, wide-to-close push-in, smoke-burst reaction beat and final present-to-lens pose with both lines' timing are kept; the original hooded figure, face and costume are not carried over.
+<Audio 1> (voice of <Subject 1>): reference - timbre and pacing only.
+
+detailed_description:
+The target video is a 2D anime shot with clean lineart, warm cel shading and the amber lantern light of <Subject 2>, framed vertically in 9:16; the character stays strictly on-model with <Picture 1> in every frame.
+[Shot 1] A slightly high wide shot of the attic workshop: <Subject 1> stands on a wobbly stool at the brass cauldron, stirring with both hands and her tongue poking out in concentration, cloak sleeves rolled up; green bubbles rise and pop with soft plops, dried herbs sway as she bumps the shelf, and the lantern flame flickers warm highlights across her hat buckle.
+[Shot 2] At 00:03.500, cut to a medium close-up as the cauldron burps a puff of violet smoke into her face: she sneezes, the star pins glinting, and staggers backward off the stool in two quick bounces, flailing sleeve half-spilling a jar of glitter; she looks up at the lens with wide teary amber eyes and complains in the bright timbre of <Audio 1>. <d>[Chinese] 呀！老师不是说好只搅三圈吗？</d>
+[Shot 3] At 00:07.000, she tiptoes back and lifts the finished flask up toward the lens with both hands: the liquid glows soft gold on her face, soot smudges one cheek, and her pout melts into a tiny proud grin while steam curls between her and the camera and the rafters settle with a soft wooden creak. <d>[Chinese] 嘿嘿……其实，成功了吧？</d> The beat holds on her hopeful upturned face, lantern light twinkling in her eyes. Throughout the shot her motions stay small, bouncy and physically stable - legs never apart, no exaggerated action poses, hands and face never distort - and she never drifts out of her earnest apprentice character; no readable lyrics or subtitles ever appear.
+
+overall_soundscape:
+Cozy attic room tone: bubbling and plops from the cauldron, faint clink of glassware on shelves, the rustle of hanging herbs, wooden creaks underfoot, and her bright husky voice per <Audio 1>.
+
+non_diegetic_music:
+A soft music-box waltz, barely audible beneath the room tone.
