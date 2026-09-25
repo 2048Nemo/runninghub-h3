@@ -43,7 +43,7 @@
 
 ```bash
 # 1. 把本仓库放进（或克隆为）你的 Agent 技能目录
-git clone <repo-url> ~/.zcode/skills/runninghub-h3
+git clone https://github.com/2048Nemo/runninghub-h3.git ~/.zcode/skills/runninghub-h3
 
 # 2. 配置密钥（600 权限，绝不进仓库）
 mkdir -p ~/.config/runninghub
