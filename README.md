@@ -1,11 +1,15 @@
 # runninghub-h3
 
-给 Agent 的视频生成技能：在 RunningHub 云端跑 **MiniMax H3**，从提交、轮询到成片落盘全自动。
+给 Agent 的视频生成技能：在 RunningHub 云端跑 **MiniMax H3**，全链路端到端——
+提交 → **自动下载** → **检查是否达标** → **不达标自动编排重试**，循环直到抽到想要的镜头。
 
 **它只提供视频生成能力。** 提示词内容、角色设定、分镜设计属于你的项目，不归本 skill 管。
 
 ## 它做什么
 
+- **全链路端到端闭环**：任务 SUCCESS 自动落盘 `~/Downloads/runninghub/<项目>/<镜头>.mp4`；
+  抽帧检查角色一致性/构图/动作/时长；不达标时 Agent 自动定位问题层级——改提示词、
+  改节点参数、换素材或原样重摇——重新提交，直到抽中目标镜头。成功才计费，失败零扣费。
 - **双通道提交**：RunningHub AI App API（`/openapi/v2/run/ai-app/<id>`）与
   Workflow API（`/task/openapi/create`），`--target aiapp|workflow` 或配置选择
 - **素材自动上传**：`--file` 给本地路径即可（H.264 校验、sha256 去重命名、媒体字段名按配置自动纠正）
