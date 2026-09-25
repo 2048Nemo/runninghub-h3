@@ -1,3 +1,16 @@
+---
+name: runninghub-h3
+description: >-
+  通过 RunningHub 云端运行 MiniMax H3 生成视频（AI 应用与工作流双通道）：自动上传素材、
+  提交、轮询、下载成片并上报成本。当用户需要生成视频、运行 RunningHub 工作流 / AI 应用，
+  或提到 H3、Ref2VA、参考生视频、文生视频任务时使用——即使用户没有明说"用 H3"。
+  写 Ref2VA 提示词需要分析参考视频/图片，由具备视觉能力的 Agent 或人工完成。
+metadata:
+  author: 2048Nemo
+  version: "1.0.0"
+  license: MIT
+---
+
 # Skill: runninghub-h3
 
 连接 RunningHub 上的 MiniMax H3 视频工作流并出片的**通用、自包含**教程与工具：
