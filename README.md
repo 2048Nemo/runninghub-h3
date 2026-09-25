@@ -27,6 +27,9 @@
 
 ## 安装
 
+> 最省事的方式：把 [INSTALL.md](INSTALL.md) 里的整段指令复制给你的 Agent，它会自己装好。
+> 手动安装如下：
+
 ```bash
 git clone https://github.com/2048Nemo/runninghub-h3.git ~/.zcode/skills/runninghub-h3
 
