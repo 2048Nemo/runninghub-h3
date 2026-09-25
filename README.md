@@ -27,8 +27,36 @@
 
 ## 安装
 
-> 最省事的方式：把 [INSTALL.md](INSTALL.md) 里的整段指令复制给你的 Agent，它会自己装好。
-> 手动安装如下：
+**最省事：把下面整段复制、粘贴给你的 Agent**（Claude Code / ZCode / Cursor CLI 等均可），它会自己完成安装、配置和自检：
+
+```text
+请帮我安装 runninghub-h3 视频生成技能。仓库：https://github.com/2048Nemo/runninghub-h3
+
+1. 克隆到你的技能目录（用你实际在用的那个，如 ~/.zcode/skills/、~/.claude/skills/、~/.agents/skills/）：
+   git clone https://github.com/2048Nemo/runninghub-h3.git <你的技能目录>/runninghub-h3
+
+2. 配置密钥（需要我先提供）：
+   - 向我询问我的 RunningHub API Key（在 https://www.runninghub.ai 个人中心创建，
+     选默认扣 RH币 的 NORMAL 类型）。不要编造或使用示例值。
+   - 写入 ~/.config/runninghub/config.json：
+     {"apiKey": "<我的Key>", "host": "https://www.runninghub.ai", "target": "aiapp"}
+   - 文件权限设为 600（Windows 下设置仅当前用户可读）。
+   - 密钥不要写进任何源码、日志或会话记录。
+
+3. 自检（不需要密钥、不联网、不产生费用）：
+   python3 -m py_compile <技能目录>/runninghub-h3/scripts/h3_run.py
+   python3 <技能目录>/runninghub-h3/scripts/h3_run.py params --project _selfcheck
+   （第二条应输出一行 JSON 事件 {"event": "params", ...}；params 是纯本地操作）
+
+4. 学习用法：通读安装目录下的 SKILL.md（操作手册）和 references/prompt-guide.md
+   （H3 Ref2VA 六段提示词规范）。之后我要求生成视频时，按 SKILL.md 流程执行：
+   extract 固化配置 → dry-run 预览 → submit 提交看护。
+
+注意事项：长镜头看护加 --max-seconds 3600；失败与提交被拦的任务零扣费；
+视频素材只收 H.264（AV1 需先转码）；需要 Python 3.10+，无第三方依赖。
+```
+
+也可以手动装：
 
 ```bash
 git clone https://github.com/2048Nemo/runninghub-h3.git ~/.zcode/skills/runninghub-h3
@@ -39,32 +67,6 @@ cat > ~/.config/runninghub/config.json <<'EOF'
 EOF
 chmod 600 ~/.config/runninghub/config.json
 ```
-
-## 快速开始
-
-```bash
-cd ~/.zcode/skills/runninghub-h3/scripts
-
-# ① 从 AI 应用提取参数白名单，固化为本地配置（一次性）
-mkdir -p ~/.runninghub/workflows
-python3 h3_run.py extract --webapp <你的webappId> -o ~/.runninghub/workflows/my-app.json
-
-# ② 免费预览将发出的完整请求（素材会上传取 fileName，但不提交、不计费）
-python3 h3_run.py submit --config ~/.runninghub/workflows/my-app.json --dry-run \
-  --file "27:video=ref.mp4" --node "263:text=$(cat prompt.txt)"
-
-# ③ 提交并看护：上传 → 提交 → 轮询 → 下载成片 → 系统通知
-python3 h3_run.py submit --config ~/.runninghub/workflows/my-app.json \
-  --file "27:video=ref.mp4" --file "51:image=design.png" --file "48:audio=voice.mp3" \
-  --node "263:text=$(cat prompt.txt)" --node "259:value=10" \
-  --project my-film --shot scene01_v1 --notify
-
-# ④ 只提交不等结果（CI 两段式），之后任意进程接管轮询
-python3 h3_run.py submit ... --no-wait
-python3 h3_run.py watch --task <taskId> --project my-film --shot scene01_v1 --notify
-```
-
-成片默认落盘 `~/Downloads/runninghub/<项目>/<镜头>.mp4`，撞名自动加序号，绝不覆盖。
 
 ## 文档地图
 
