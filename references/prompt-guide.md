@@ -1,7 +1,9 @@
 # Ref2VA 六段提示词指南（通用版）
 
-字段级更完整规范可选参考 `h3-prompt-writing` skill 的 `references/ref-en.txt`；
-本篇自包含，覆盖实战所需全部要点。**角色、分镜、画风属于你自己的项目**——本篇只管格式与技巧。
+与 MiniMax 官方 `skills/h3-prompt-writing`（github.com/MiniMax-AI/MiniMax-H3，
+`references/ref-en.txt` + `base-en.txt`）同源；本篇是实战浓缩，字段级完整规范直接读官方
+ref-en.txt（本机 `h3-prompt-writing/references/` 有同版拷贝，已核对与 GitHub 一致）。
+**角色、分镜、画风属于你自己的项目**——本篇只管格式与技巧。
 
 ## 六段结构（顺序固定）
 
@@ -23,6 +25,29 @@
   `帧数 = max(5, round(秒×24))` 向上对齐 17 的倍数（4s→107帧≈4.46s，10s→243帧≈10.13s）
 - 标签全文一致；不要在 summary 里新造标签；标点收在 `,` `.` `?` `!`，去掉波浪号堆叠
 
+## 对白与说话人（防「乱说话」，官方 base-en/ref-en §5.4）
+
+`<d>` 是台词的硬绑定通道：模型拿它直接驱动 TTS 与口型，结构写错 = 角色乱嘟囔。
+逐条照官方规则：
+
+1. **`<d>` 内只放两样**：语言标签 + 台词原文。说话人身份、动作、语气全写在 `<d>` 外：
+   `The young woman with a quiet, breathy voice (S1) says: <d>[English] I get off at the next station.</d>`
+2. **语言标签用半角方括号** `[Chinese]` / `[English]`（B站评论里 `【chinese】` 是手打不严谨）。
+   标签告诉模型用什么音素读——中文台词缺标签就容易读出乱腔。
+3. **说话人 ID 按目标视频实际发声顺序**编 `(S1)` `(S2)`，跨镜头保持；合唱用 `(S1,S2)`；
+   不出声的角色不给 ID。首次出现给足音色信息（年龄/性别/音高/语速/口音）。
+4. **音色参考必须绑定说话人**：`<Audio 1> is the voice-timbre reference for <Subject 1> (S1).`
+   ——不绑定，模型可能把参考音色安到别人嘴里。
+5. **只参考音色时，禁止把参考音频的原台词搬进目标视频**。台词密集时优先保证完整口语
+   时间线，不硬凑 350~500 词。
+6. **画外音**用精确短语 `says in an off-screen voiceover`，并紧跟
+   `while his lips remain completely closed`（声明画面角色闭嘴，防口型乱动）。
+7. **台词跨切**：切点两侧都标 `<scenetrans>` 并声明 `continues seamlessly across the cut`；
+   被片尾截断的半句话标 `<cutoff>`。
+8. **听不清就写 `[unclear]`**，禁止猜词意译；`<d>` 内台词逐字保留，不翻译不改写。
+9. **完整台词只准出现在 detailed_description 的 `<d>` 里**，`overall_soundscape` /
+   `non_diegetic_music` 禁止复述。BGM 里的人声归 `<Audio N>`，角色开口归 `(Sx)`，别混。
+
 ## 常见坑（实测教训）
 
 1. **情绪词不要改写身体形状**：写 `cheeks puffed round and trembling`（气鼓鼓）会被字面执行成
@@ -41,6 +66,7 @@
 subject_definitions:
 <Subject 1> is <角色要点> from <Video 1>, with <外观锁定>.
 <Subject 2> is <场景/环境> from <Video 1>.
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1).   ← 有参考音频时必写
 
 summary:
 [reference generation] One short paragraph: what the target video shows, citing <Subject N> / <Video 1>.
