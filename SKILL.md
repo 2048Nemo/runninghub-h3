@@ -6,7 +6,7 @@ description: >-
   当用户需要生成视频、运行 RunningHub 工作流 / AI 应用，或提到 H3、Ref2VA、参考生视频、
   文生视频任务时使用——即使用户没有明说"用 H3"。写 Ref2VA 提示词需要分析参考视频/图片，
   由具备视觉能力的 Agent 或人工完成。
-version: 1.2.0
+version: 2.0.0
 metadata:
   author: 2048Nemo
   license: MIT
@@ -132,13 +132,37 @@ h3_run.py watch --task <taskId> --notify
 - **H3 通用知识**：时长节点一般是「秒数」输入，帧数 = `max(5, round(秒×24))` 向上对齐
   17 的倍数（4s→107帧≈4.46s，10s→243帧≈10.13s）；两段采样（先低清一采、latent 上采样、
   高清二采）的工作流通常有**上采样倍率节点**，提交前确认其值 ≥ 1.0，否则运行必失败。
+- **H3 能稳定渲染画面文字（2026-10-08 用户确认，重要）**：**H3 的文字生成稳定性是可以的**，
+  画面内出现文字（大字标题、竖排汉字、对话气泡里的字、拟声字等）是**可用能力**，不必当缺陷规避。
+  - 用法：把要出现的字**明确写进提示词**，逐字给出，并声明「copied exactly / never redrawn and never
+    spelled out in any other way」；批量生成固定文字时要**逐字指名**而不是描述内容。
+  - 稳定性技巧：字数少、字号大、对比高（深底白字/浅底黑字）时最稳；竖排大字比小字行文更稳。
+  - ⚠️ **不要把它和"某条片子不要出现字幕"混为一谈**——那是**叙事选择**（比如片中不应有字幕/水印），
+    不是 H3 的能力边界。要字就明写要字，不要字就明写 `no text/subtitles/watermark`。
+  - ⚠️ 反之也要注意：**不想要字时必须显式负面声明**，否则模型可能自行在画面上补字。
 - **看护窗口**：`watch`/`submit` 默认 1200s 就放弃轮询——**只是本地看护退出，云端任务
   继续跑**（杀本地不停 GPU）。10s/243 帧双采样实测超 20 分钟仍未完，长镜头一律
   `--max-seconds 3600`；超时后用 `watch --task <id> --max-seconds 3600` 续盯即可，
   别重复提交（会双份计费）。
+  - **1080P 档实测耗时**：7s/1920×1088、1 视频 + 3 图 + 1 音频 ≈ **300–600s**。诊断性提交不要用
+    90s 这类超短 `--max-seconds`，会在任务仍是 `RUNNING` 时被判成 `POLL_TIMEOUT`。
+  - **台账只记终态**（`~/.runninghub/tasks_ledger.jsonl`）：任务在跑时 grep 不到记录 ≠ 任务不存在，
+    查实时状态用 `POST /task/openapi/status`（body `{apiKey, taskId}`，状态串在 `data`）。
+  - **后台脚本别接 `| tail` / `| grep`**：NDJSON 进度会被管道缓冲，看起来像卡死空转。更根本的问题是
+    **用 `sleep N` 等一个状态未知的任务**——这是纯粹的阻塞，既拿不到 taskId，也无法接管。
+  - **正确姿势：提交与等待分离**。①`submit --no-wait` 拿 taskId（通常提交后 10s 内返回），
+    立刻把 taskId **落盘**；②`watch --task <id>` 接管。这样任何时刻中断都能续盯，且**不会重复计费**。
+    需要自动化时也照此写脚本，不要把 `submit` 和 `sleep` 塞进同一个不可观测的循环。
+  - **OOM 必须真降级，不能原地重试**：default 实例跑 1920×1088 二采（283=2.0）实测会在 ~500s 后
+    `code 805 / SamplerCustomAdvanced / VRAM grow failed`（失败不扣费）。把283 从 2.0 → 1.5 → 1.0
+    逐级降（1080P→1440×816→960×544）才是有效动作；sleep 重试同样的参数只会再崩一次。
+    1080P 档若确实必需，升级为 `--instance plus`（约 3.5 倍价）。
 - **媒体槽**：图片/视频/音频槽先 `upload`（`/task/openapi/upload`，multipart，fileType=input）
   拿 fileName 再回填，fileName 有效期 1 天；视频只收 H.264（AV1 会在运行时报
   `could not be loaded with cv`）。
+- **音频参考的硬规格**（官方 README）：Ref2VA 音频 **≤3 段**，每段 **2–15 秒**，**总计 ≤15 秒**；
+  输出音轨为 **32 kHz 立体声**（原生生成）。超出会拖垮音频分支——见 `references/prompt-guide.md`
+  「音频」一节（含音频专用 retention 标记、以及「用参考音色说全新台词 + 口型同步」的官方样板）。
 - **媒体字段名**：各槽的 fieldName 由作者工作流决定（实测 goldfish：视频 27=`video`、
   图 51=`image`、音频 48=`audio`），写错会在**提交时**被
   `NODE_INFO_MISMATCH(field_not_found_in_node_inputs)` 拒绝（零扣费）。submit 现在会按
@@ -236,6 +260,107 @@ python3 <skill>/scripts/h3_run.py params --project <项目> \
   extract 存的参数默认值就是快照，失败时先 `extract` 一次 diff 即可定位变更。
 - （工作流直跑路径同理：导出 JSON → 人工/Agent 整理成同格式配置 → `--config` 复用。）
 - 曾有的本地面板/画布已从本 skill 迁出冻结（个人项目），与本 skill 无关。
+
+## 9. 分段并发与实例选型（2026-10 实测，省钱关键）
+
+### 9.1 「切成一段一段的」= 切分参考视频 + 并发提交
+用户说「切成一段一段的」时，做的是：**把参考视频按切点切成多段小片**，每段各自当一条独立任务的
+`<Video 1>` 参考，**并发提交**。默认粒度：**10 秒对半切 = 5 秒/段**
+（**H3 最少要生成 5 秒**，5 秒是能用的最小单位）。目的：出片更快、方便做快节奏叙事的分镜切分。
+
+### 9.2 切段真正的收益是「能退回 default 实例」，不是帧数变少
+**总帧数几乎不变**（5s=124 帧 / 10s=243 帧），所以**不要以为切段能让总价按比例下降**。
+真正的便宜来自：**每段帧数少 → 显存够 → 不必上 `plus`**。
+
+| 配置 | 实例 | 实测成本 |
+| --- | --- | --- |
+| 10s / 1080P（0.5MP×2.0）/ 1 视频+3 图+1 音频 | `plus` | **455 RHB** / 1137 GPU s |
+| 5s / 1080P（0.5MP×2.0）/ 2 图 1 音频 / 无参考视频 | `default` | **64 RHB** / 320 GPU s |
+
+→ **一条 10s 镜切成 2×5s 用 `default` 跑 ≈128 RHB，约为整条 `plus` 的 1/3.5。**
+
+结论：`--instance plus` 只在**长镜头（≥10s）+ 多参考图 + 高清**三样叠加、且不愿切段时才用；
+否则**优先切段 + `default`**。`--instance {default,plus,ultra}`。
+
+### 9.3 并发上限 = 3（账号级，2026-10-08 用户确认 + 实测复核）
+
+**可以同时跑 3 条**；第 4 条才会**在提交阶段**被拒（**不是运行时报错、不扣费**）：
+
+```json
+{"event":"error","reason":"SUBMIT_FAILED",
+ "detail":"api queue limit reached, please retry later | API 并发数已达上限，请降低并发或稍后重试"}
+```
+
+> ⚠️ 历史误记：本文件曾写「上限 = 2」，是把「第 3 条成功、第 4 条失败」数错了。
+> 复核 v8 批量日志：前 **3** 条均拿到 taskId，第 4/5 条才 `SUBMIT_FAILED`。**上限是 3。**
+> 排产时让**3 个槽始终占满**（完成即补下一条），别只发 2 条浪费并行度。
+
+→ 批量任务要**排队重试**，不要盲目连发：
+
+```bash
+for i in $(seq 1 40); do
+  OUT=$(python3 h3_run.py submit … 2>&1)
+  echo "$OUT" | grep -q "SUBMIT_FAILED" || { echo "$OUT" | tail -8; break; }
+  sleep 60
+done
+```
+
+### 9.4 切段的代价（必须自己兜住）
+- **段与段各自独立生成、不共享上下文** → 人物/场景/光线连续性要自己保证：
+  每段都带**同一套参考图**，并写**一致的 Subject 定义**（同一角色同一描述，一字不改）。
+- **切点要落在动作或对白的自然停顿上**，别切在动作中途；对白跨切用 `<scenetrans>` + 声明
+  `continues seamlessly across the cut`。
+- **段越碎，拼接接缝越多**，后期要单独过一遍接续感。
+
+## 10. GPT Image 生图通道（2026-10-04 实测）
+
+RunningHub 的 `rhart-image-g-2`（"GPT Image"）**不是 workflow/aiapp**，h3_run.py 跑不了；
+用本目录 `scripts/gpt_image.py`（密钥读 `~/.config/runninghub/enterprise.json` 或 `--config`）：
+
+```bash
+# 文生图（~$0.015/张 @1k）
+python3 scripts/gpt_image.py t2i --prompt "..." -o out.png --aspect "16:9" --resolution 1k
+# 图生图/多参考合成（imageUrls 上限 10 张，第 11 张直接被拒）
+python3 scripts/gpt_image.py i2i --prompt "..." --ref room.png --ref char.png -o out.png
+# 按 taskId 找回（下载阶段 SSL 抖动丢了结果时用，不重复扣费）
+python3 scripts/gpt_image.py fetch --task-id <id> -o out.png
+```
+
+实测坑位：① 上传端点 `/openapi/v2/media/upload/binary` multipart 字段名是 `file`，取 `data.download_url`；
+② 轮询 `/openapi/v2/query` 的 `status` 在响应顶层；③ SSL `UNEXPECTED_EOF` 抖动频繁，脚本已内置重试；
+④ 任务提交成功后即使本地下载失败，云端仍在，用 fetch 找回即可。
+
+## 11. h3_task.py — 提交全生命周期编排器（v2.0 核心，2026-10-06）
+
+写临时提交脚本已废弃。所有 H3/千问提交、并发、QC、任务管理走 `scripts/h3_task.py`：
+
+```bash
+# ① 工作流映射表（语义名→槽位，per-workflow 一份 JSON）
+scripts/h3_task.py workflows            # 列出已沉淀映射表；新工作流先 extract 试错再沉淀到 workflows/<id>.json
+
+# ② 提交：Agent 只写 plan（语义名），槽位/参数/画质由映射表翻译
+scripts/h3_task.py validate plan.json   # 提交前自检（路径/中文/时长/上限）——问题列表非空禁止提交
+scripts/h3_task.py submit   plan.json   # validate→退避→机械降级→台账，一条龙
+scripts/h3_task.py parallel a.json b.json   # 并发上限2，错峰上传，日志落盘 .log
+
+# ③ 提交后
+scripts/h3_task.py tasks                # 任务面板：几个在跑/排队/完成 + 累计 RHB（官方无 list API，此为台账+query 等效实现）
+scripts/h3_task.py qc 成片.mp4          # 一键质检：规格/抽帧表/音轨发声段 → qc_*/report.json
+scripts/h3_task.py ledger [shot过滤]    # 按 shot 汇总花费
+scripts/h3_task.py cancel <taskId>      # 取消（不扣费）
+```
+
+**plan.json 语义字段**（槽位号禁写）：`workflow / shot / project / seconds / quality(1080p|1440|720p|low 或 16:9) / media{video1,image1..6,audio1..3} / prompt_file / output / policy{auto_plus}`。相对路径相对 plan 文件所在目录。
+
+**内置策略（勿在调用侧重复实现）**：
+- 退避（仅提交阶段）：INIT 30s ×1.5 cap 90s equal-jitter · 最多 6 次 · TTL 60min 且预留 estimated_runtime
+- 错误分类：并发槽满/SSL/5xx → 退避重试；FILE_NOT_FOUND/参数错 → 立即抛回（重试无意义）
+- 成功判定只认 `done` 事件（SSL 日志误判防线，勿改）
+- OOM：机械降级 default/1080p→default/1440→plus/1080p（policy.auto_plus）→ 仍败则抛语义决策报告（减图/砍时长由 Agent/人拍板，脚本不擅动素材）
+
+**台账**：`~/.runninghub/tasks_ledger.jsonl`（提交成功自动写；网页手提的任务可手动补录 taskId）。历史 taskId 状态由 tasks 子命令并发 query 刷新。
+
+**全局设置**：`~/.runninghub/settings.json`（`h3_task.py settings` 查看生效值）——`max_parallel`（提交并发上限，**实测 = 3**，2026-10-08 用户确认 + 复核 v8 日志：前 3 条成功、第 4 条起被拒）、`backoff{init_seconds/multiplier/max_seconds/max_retry/ttl_minutes/jitter}`、`default_policy{auto_plus}`。覆盖顺序：settings.json < plan.json.policy < 命令行。
 
 ## 附录 B. v2 AI 应用接口要点（2026-09 官方文档实测）
 

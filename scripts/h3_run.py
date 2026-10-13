@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-h3_run.py — RunningHub H3 工作流一体化 runner（NDJSON 事件流，供 Agent/CI 以子进程方式消费）。
+h3_run.py — RunningHub 工作流一体化 runner（NDJSON 事件流，供 Agent/CI 以子进程方式消费）。
+
+视频（MiniMax H3）与生图/编辑（Qwen Image 等，属视频前置的资产生成）任务通用。
 
 零第三方依赖，纯 Python 标准库（urllib），不调用外部命令（系统通知除外，且经 argv 传参）。
 
@@ -17,6 +19,9 @@ h3_run.py — RunningHub H3 工作流一体化 runner（NDJSON 事件流，供 A
   {"ts":..., "event":"error", "reason":"SUBMIT_FAILED", "detail":{...}}
   {"ts":..., "event":"param_confirm", "project":"...", "unconfirmed":[...]}  ← 画面比例/尺寸待核对（Agent 应转述给用户，勿擅自确认）
   {"ts":..., "event":"param_mismatch", "diff":[...]}                         ← 与项目档案不一致的告警（可忽略或改回）
+  {"ts":..., "event":"ext_fixed", "src":"a.mp4", "dst":"a.png", "detected":".png"} ← 下载后按文件头纠正后缀
+                                                                               （生图/编辑任务常见：透明 PNG 被平台按视频习惯返回）
+  {"ts":..., "event":"container_fixed", "file":"..."}                        ← QuickTime 头改写为标准 MP4（图片自动跳过）
 
 密钥与站点：env RUNNINGHUB_API_KEY / RUNNINGHUB_HOST 优先，其次 ~/.config/runninghub/config.json
 （{"apiKey": "...", "host": "..."}，权限建议 600）。密钥不落日志。
@@ -418,12 +423,16 @@ def parse_kv(arg: str) -> tuple[str, str, str]:
 
 
 def submit(host: str, key: str, app_id: str, nodes: list[dict],
-           target: str = "workflow") -> str:
+           target: str = "workflow", instance_type: str | None = None) -> str:
     """target=workflow: /task/openapi/create（apiKey 在 body，code 包装响应）
-       target=aiapp:   /openapi/v2/run/ai-app/<id>（Bearer，响应为任务对象本身）"""
+       target=aiapp:   /openapi/v2/run/ai-app/<id>（Bearer，响应为任务对象本身）
+       instance_type:  default=24G / plus=48G / ultra=84G 显存实例（None=平台默认）"""
     if target == "aiapp":
+        body = {"nodeInfoList": nodes}
+        if instance_type:
+            body["instanceType"] = instance_type
         resp = post_json(host + "/openapi/v2/run/ai-app/" + str(app_id),
-                         {"nodeInfoList": nodes}, bearer=key)
+                         body, bearer=key)
         task_id = resp.get("taskId") or (resp.get("data") or {}).get("taskId")
         if not task_id:
             emit("error", reason="SUBMIT_FAILED",
@@ -492,6 +501,74 @@ def fix_mov_to_mp4(path: str) -> bool:
     return True
 
 
+# 按文件头魔数识别真实格式。图片任务（Qwen Image 等生图/编辑工作流）常被平台
+# 按视频习惯命名返回，后缀与实际格式不符会误导后续环节——透明通道判断、资产入库、
+# 播放器/预览器打开都会踩错。这里只做「后缀 vs 魔数」的对账，认不出就原样放过。
+_MAGIC_IMAGE = (
+    (b"\x89PNG\r\n\x1a\n", ".png"),
+    (b"\xff\xd8\xff", ".jpg"),
+    (b"GIF87a", ".gif"),
+    (b"GIF89a", ".gif"),
+)
+_EQUIV_SUFFIX = {
+    ".mp4": {".mp4", ".mov", ".m4v"},   # 同一个 ftyp 盒家族
+    ".jpg": {".jpg", ".jpeg", ".jpe"},
+    ".mkv": {".mkv", ".webm"},
+}
+
+
+def detect_ext(path: str) -> str | None:
+    """按文件头判断真实格式，返回建议扩展名（含点）；认不出返回 None。"""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(32)
+    except OSError:
+        return None
+    if len(head) < 12:
+        return None
+    if head[4:8] == b"ftyp":
+        return ".mp4"
+    if head[:4] == b"RIFF":
+        if head[8:12] == b"WEBP":
+            return ".webp"
+        if head[8:12] == b"AVI ":
+            return ".avi"
+        return None
+    if head[:4] == b"\x1a\x45\xdf\xa3":
+        return ".mkv"
+    for sig, ext in _MAGIC_IMAGE:
+        if head.startswith(sig):
+            return ext
+    return None
+
+
+def reconcile_ext(path: str) -> str:
+    """把扩展名纠正为与实际字节一致的格式，返回（可能已改名的）路径。
+
+    只在本后缀与魔数明确冲突时改名，等价后缀（.jpg/.jpeg、.mp4/.mov）不动；
+    改名前做撞名保护，绝不覆盖既有文件。透明 PNG 图被平台按 .mp4 返回时，
+    这一步会把它还原成 .png——那是确保透明通道被后续环节正确识别的关键。
+    """
+    det = detect_ext(path)
+    if not det:
+        return path
+    p = Path(path)
+    cur = p.suffix.lower()
+    if cur == det or cur in _EQUIV_SUFFIX.get(det, ()):
+        return path
+    new = p.with_suffix(det)
+    k = 2
+    while new.exists():
+        new = p.with_name(f"{p.stem}_{k}{det}")
+        k += 1
+    try:
+        p.rename(new)
+    except OSError:
+        return path
+    emit("ext_fixed", src=p.name, dst=new.name, detected=det)
+    return str(new)
+
+
 def _safe_name(name: str) -> str:
     """项目/镜头名净化：去掉路径分隔符与父目录引用，防止写出到目录之外。"""
     cleaned = name.replace("\\", "_").replace("/", "_").replace("..", "_").strip()
@@ -528,6 +605,9 @@ def download_results(urls: list[str], output_base: str | None,
         download_to(url, out)
         if fix_mov_to_mp4(out):
             emit("container_fixed", file=out)
+        # 后缀与真实字节对账：生图/编辑任务返回 PNG（含透明图）时，把被按
+        # 视频习惯命名的 .mp4 还原为 .png，避免下游误判格式
+        out = reconcile_ext(out)
         out_paths.append(str(Path(out).resolve()))
     return out_paths
 
@@ -597,7 +677,9 @@ def watch_task(host: str, key: str, task_id: str, output: str | None,
             emit("failed", taskId=task_id, errorCode=resp.get("errorCode"),
                  node=fr.get("node_id"), node_name=fr.get("node_name"),
                  exception=fr.get("exception_message"),
-                 traceback=(fr.get("traceback") or [""])[-1][:500])
+                 exception_type=fr.get("exception_type"),
+                 traceback=fr.get("traceback"),
+                 failedReason=fr)
             if notify:
                 sys_notify("H3 工作流失败", str(fr.get("node_name") or resp.get("errorCode")))
             sys.exit(1)
@@ -637,6 +719,9 @@ def main() -> None:
     p_sub.add_argument("--target", choices=["workflow", "aiapp"], default=None,
                        help="提交端点：workflow=/task/openapi/create；aiapp=/openapi/v2/run/ai-app/<id>"
                             "（缺省依次取 --config 的 target、workflow）")
+    p_sub.add_argument("--instance", choices=["default", "plus", "ultra"], default=None,
+                       help="显存实例：default=24G（默认）/ plus=48G / ultra=84G；"
+                            "10 秒档或长时长视频 OOM 时用 plus")
     p_sub.add_argument("--node", action="append", default=[],
                        help="id:field=value，可重复（如 259:value=10）")
     p_sub.add_argument("--file", action="append", default=[],
@@ -777,7 +862,8 @@ def main() -> None:
                               "nodeInfoList": nodes,
                               "param_sources": sources}, ensure_ascii=False, indent=1))
             return
-        task_id = submit(host, key, app_id, nodes, target=target)
+        task_id = submit(host, key, app_id, nodes, target=target,
+                         instance_type=getattr(args, "instance", None))
         registry_update(task_id, {"source": "agent", "status": "已提交",
                                   "project": args.project or "panel",
                                   "shot": args.shot or "",

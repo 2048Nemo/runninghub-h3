@@ -2,7 +2,8 @@
 
 与 MiniMax 官方 `skills/h3-prompt-writing`（github.com/MiniMax-AI/MiniMax-H3，
 `references/ref-en.txt` + `base-en.txt`）同源；本篇是实战浓缩，字段级完整规范直接读官方
-ref-en.txt（本机 `h3-prompt-writing/references/` 有同版拷贝，已核对与 GitHub 一致）。
+ref-en.txt（**注意：本机并未随 skill 附带 `h3-prompt-writing/references/` 拷贝，需自行从
+GitHub 或 `npx skills add https://github.com/MiniMax-AI/MiniMax-H3 --skill h3-prompt-writing` 获取**）。
 **角色、分镜、画风属于你自己的项目**——本篇只管格式与技巧。
 
 ## 六段结构（顺序固定）
@@ -50,6 +51,100 @@ ref-en.txt（本机 `h3-prompt-writing/references/` 有同版拷贝，已核对�
 8. **听不清就写 `[unclear]`**，禁止猜词意译；`<d>` 内台词逐字保留，不翻译不改写。
 9. **完整台词只准出现在 detailed_description 的 `<d>` 里**，`overall_soundscape` /
    `non_diegetic_music` 禁止复述。BGM 里的人声归 `<Audio N>`，角色开口归 `(Sx)`，别混。
+
+## 音频：`<Audio N>` / `audio reuse` / `audio reference`（2026-10-04 逐字核官方文档后重写）
+
+> 本节逐字核自官方 `h3-prompt-writing/references/ref-en.txt`（§2.4/2.5/3/4.2/5.4/6）与仓库
+> README 规格表。**⚠️ 本 skill 早前版本写入过的三条 ——「`sings along to <Audio 1>` 跟唱模板」
+> 「音色移植（A 嗓音 × B 演唱）官方模板」「32×32 纯音频产出」—— 在官方文档中查无实据，
+> 已删除，不要再用。** 官方**没有**「跟唱」专章，也没有 "lip sync" 专章。
+
+**硬规格**（官方 README）
+- 输出音轨 **32 kHz 立体声**（原生生成，非后期配音）；输出时长 4–15s；24 FPS。
+- Ref2VA 参考输入上限：图 ≤9；视频 ≤3 段（每段 2–15s，总计 ≤15s）；**音频 ≤3 段（每段 2–15s，
+  总计 ≤15s）**；混合文件总数 ≤12。
+- 稳定支持 11 种语言（含中/日/英）。
+
+**`<Audio N>` 的五种用途**（官方逐字）
+> Copying all or part of an audio signal · Referencing a background-music style · Referencing a
+> speaker's voice timbre and delivery · Using dialogue, lyrics, or sound effects from the original
+> audio · Referencing beat, rhythm, or audio continuity
+
+**绑定说话人**：`<Audio 1> is the voice-timbre reference for <Subject 1> (S1).`
+（`(Sx)` 来自成片全局发声顺序，音频定义里**不得另行编号**。）一个音频承担多角色时用**一句话**写清，
+不要另起小节。`<Video N>` 与 `<Audio N>` **独立编号、不构成配对**；**参考视频不因为"文件里有
+声音"就自动产生 `<Audio N>`**。
+
+**音频 retention 标记与画面不是一套**（混用是常见错误）
+
+| 标记 | 含义（官方逐字） |
+| --- | --- |
+| `fully_copy` | The complete source audio serves as the target video's complete final audio track |
+| `partially_copy` | Only part of the timeline or selected audio layers are copied, or other sounds are added, removed, or replaced after copying |
+| `reference` | The signal is not copied directly; only timbre, rhythm, music style, dialogue content, or sound texture is referenced |
+| `weak_reference` | Only broad similarity in category or atmosphere is retained |
+
+**给音频写 `fully_preserved` 是错的** —— 那是画面/图片/视频用的标记。
+
+**两种任务类型前缀**：`[audio reuse]`（the same audio signal is reused in full or in part）／
+`[audio reference]`（不直接拷贝，只借 music style / timbre / dialogue or lyric content /
+sound-effect texture / beat / continuity）。可 ` + ` 组合、不重复同类型。取用规则：
+**编辑源视频且原声仍可闻 → 同时写 `audio reuse`**；**续写但不直接拷音频、只延续原轨可闻特征
+→ 写 `audio reference`**。
+
+**官方完整实例：音色克隆 + 说全新台词 + 口型同步**（README case-Ref2VA，5s）
+这是"让画面里的人用另一条音频的音色说新台词"的官方写法，结构可直接照抄：
+
+```text
+<Audio 1> is the synchronized audio track of <Video 1>, providing the background music.
+<Audio 2> is the voice timbre reference for <Subject 1>'s voice, containing a spoken male voiceover.
+
+summary:
+[video editing + audio reference + audio reuse] ... The edit animates <Subject 1>'s face to speak
+the user-provided dialogue. <Audio 1> is partially reused as the continuous background music, while
+the target references the calm male voice timbre of <Audio 2> for <Subject 1>'s spoken lines.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - ... with his mouth newly animated to speak.
+<Audio 1>: partially_copy - the atmospheric background music from <Audio 1> is reused, mixed
+beneath the newly added spoken dialogue.
+<Audio 2>: reference - the target audio references the male voice timbre from <Audio 2> to generate
+<Subject 1>'s spoken dialogue.
+
+detailed_description:
+[Shot 1] ... <Subject 1> physically speaks, his mouth movements naturally syncing to the new
+dialogue, with his voice timbre referencing the calm male delivery from <Audio 2>. ... <Subject 1>
+(S1) speaks softly, <d>[English] Follow the wind, live free.</d> Exactly as his voice stops, his
+lips meet in a relaxed, peaceful smile, and his jaw ceases speaking motion.
+```
+
+**两条互斥铁律**（ref-en §5.4）
+- **只借音色/节奏/情绪/演绎时**：`When only timbre, rhythm, emotion, or delivery is referenced,
+  do not carry the original dialogue from the reference audio into the target video.`
+- **直接复用或用户明确要求"重现"歌词/台词时**：`<d>` 内**保留原词与原语言**；听不清写
+  `[unclear]`、不许猜或意译；标点收敛到 `, . ? !`，去掉波浪号堆叠/emoji/装饰标点。
+
+**`(Sx)` 分配规则**（ref-en §5.4）
+- 按成片实际发声顺序**一次性分配**、跨镜复用；有具身发声者（人/角色/旁白）才分配 `(Sx)`。
+- **只存在于被直接复用的 BGM / 完整音轨里的口头线索**（无具身发声者）→ 用 `<Audio N>` 当可闻
+  来源，**不要新造 `(Sx)`**。
+- **`retention_analysis` 里禁止出现 `(Sx)`**；合唱/齐说用 `(S1,S2)`。
+
+**声音归到哪一段**（ref-en §6 + base-en §4.6/4.7）
+- **dialogue、singing、与某镜同步的音效 → 一律留在 `detailed_description`**。
+- 环境声/物理音/非语言人声 → `overall_soundscape`（1–4 句）。
+- 角色听不到的观众配乐 → `non_diegetic_music`（1–3 句，写配器/速度/节奏/动态，**不用抽象情绪词**）。
+- **歌词与台词的完整文本只准出现在 `<d>` 里**，上面两段禁止复述。
+- 角色**能听到**的唱歌/乐器/收音机/电视/手机音乐 = diegetic → 写在正文，不进 `non_diegetic_music`。
+- N/A 规则两段不同：`overall_soundscape` **只在明确要求全片静音时**才写 N/A；
+  `non_diegetic_music` 没有配乐就写 N/A。
+- 同一参考音频同时提供两类内容时，两段各写各的拷贝/参考关系。
+
+**延伸阅读**：官方仓库另有 `skills/music-video-subtitle-generator`（MV 工作流规范，非字段规范），
+其中真正有用的是**音频连续性做法**：锁定唯一 Master Audio、分段片段一律对齐 Master 时间戳、
+**切点必须落在歌词句间停顿或换气、或强鼓点上，严禁在元音或唱词中途硬切**（除非后镜是极近特写
+且口型接续）、人物嘴型/下颌/呼吸/点头要跟随歌词 phrasing 与 rhythm、有人声时贴字必须逐字匹配
+正在演唱的歌词、剪辑点裁在 1/4 或 1/8 拍网格上。
 
 ## 常见坑（实测教训）
 
